@@ -1,6 +1,0 @@
-@payments_svc_HostAddress = http://localhost:5148
-
-GET {{payments_svc_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
