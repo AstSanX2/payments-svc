@@ -2,6 +2,15 @@
   "AWSTemplateFormatVersion": "2010-09-09",
   "Transform": "AWS::Serverless-2016-10-31",
   "Description": "payments-svc - API de status + Worker SQS (PAID) + MongoDB Atlas + X-Ray",
+
+  "Parameters": {
+    "MongoUriParam": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/fcg/MONGODB_URI",
+      "Description": "SSM parameter name que contém a URI do MongoDB (tipo String)."
+    }
+  },
+
   "Resources": {
     "PaymentsApi": {
       "Type": "AWS::Serverless::Function",
@@ -15,7 +24,7 @@
         "Tracing": "Active",
         "Environment": {
           "Variables": {
-            "MONGODB_URI": "{{resolve:ssm-secure:/fcg/MONGODB_URI}}"
+            "MONGODB_URI": { "Ref": "MongoUriParam" }
           }
         },
         "Policies": [
@@ -53,7 +62,7 @@
         "Tracing": "Active",
         "Environment": {
           "Variables": {
-            "MONGODB_URI": "{{resolve:ssm-secure:/fcg/MONGODB_URI}}"
+            "MONGODB_URI": { "Ref": "MongoUriParam" }
           }
         },
         "Policies": [
@@ -74,6 +83,7 @@
       }
     }
   },
+
   "Outputs": {
     "PaymentsApiURL": {
       "Description": "Endpoint da API de pagamentos (Prod)",
