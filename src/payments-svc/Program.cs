@@ -1,8 +1,11 @@
+using Amazon.XRay.Recorder.Handlers.AwsSdk;
 using Helpers;
 using Microsoft.OpenApi.Models;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Text.Json;
+
+AWSSDKHandler.RegisterXRayForAllServices();
 
 var builder = WebApplication.CreateBuilder(args);
 
