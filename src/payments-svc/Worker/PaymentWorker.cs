@@ -9,7 +9,7 @@ using System.Text.Json;
 namespace Payments.Worker;
 
 // Mensagem publicada pelo games-svc
-public record PurchaseMsg(string purchaseId, string userId, decimal amount);
+public record PurchaseMsg(string PurchaseId, string UserId, decimal Amount);
 
 public class PaymentWorker
 {
@@ -21,17 +21,17 @@ public class PaymentWorker
             ?? throw new InvalidOperationException("Env MONGODB_URI não definida.");
         var url = new MongoUrl(mongoUri);
         var client = new MongoClient(mongoUri);
-        _db = client.GetDatabase(url.DatabaseName ?? "fase3");
+        _db = client.GetDatabase(url.DatabaseName ?? "fcg-db");
     }
 
     public async Task FunctionHandler(SQSEvent evnt, ILambdaContext context)
     {
-        var purchases = _db.GetCollection<BsonDocument>("purchases");
-        var events = _db.GetCollection<BsonDocument>("events");
+        var purchases = _db.GetCollection<BsonDocument>("Purchases");
+        var events = _db.GetCollection<BsonDocument>("Events");
 
         foreach (var record in evnt.Records)
         {
-            PurchaseMsg? msg = null;
+            PurchaseMsg? msg;
             try
             {
                 msg = JsonSerializer.Deserialize<PurchaseMsg>(record.Body);
@@ -42,7 +42,13 @@ public class PaymentWorker
                 continue;
             }
 
-            if (msg is null || string.IsNullOrWhiteSpace(msg.purchaseId))
+            if (msg is null || !ObjectId.TryParse(msg.PurchaseId, out var purchaseId))
+            {
+                context.Logger.LogError("Payload sem purchaseId.");
+                continue;
+            }
+
+            if (!ObjectId.TryParse(msg.UserId, out var userId))
             {
                 context.Logger.LogError("Payload sem purchaseId.");
                 continue;
@@ -52,26 +58,26 @@ public class PaymentWorker
             var newStatus = "PAID";
 
             // Atualiza status da compra
-            var f = Builders<BsonDocument>.Filter.Eq("_id", msg.purchaseId);
+            var f = Builders<BsonDocument>.Filter.Eq("_id", purchaseId);
             var u = Builders<BsonDocument>.Update
-                        .Set("status", newStatus)
-                        .Set("updatedAt", DateTime.UtcNow);
+                        .Set("Status", newStatus)
+                        .Set("UpdatedAt", DateTime.UtcNow);
             await purchases.UpdateOneAsync(f, u);
 
             // Grava evento (event sourcing)
             var ev = new BsonDocument {
-                { "aggregateId", msg.purchaseId },
+                { "aggregateId", msg.PurchaseId },
                 { "type", "PaymentProcessed" },
                 { "timestamp", DateTime.UtcNow },
                 { "seq", 1 },
                 { "data", new BsonDocument {
-                    { "userId", msg.userId },
-                    { "amount", msg.amount }
+                    { "userId", userId },
+                    { "amount", msg.Amount }
                 } }
             };
             await events.InsertOneAsync(ev);
 
-            context.Logger.LogInformation($"Pagamento processado: {msg.purchaseId}");
+            context.Logger.LogInformation($"Pagamento processado: {msg.PurchaseId}");
         }
     }
 }

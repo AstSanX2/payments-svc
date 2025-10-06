@@ -1,6 +1,8 @@
+using Helpers;
 using Microsoft.OpenApi.Models;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +34,12 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "PaymentsSvc", Version = "v1" });
 });
 
+builder.Services.AddControllers().AddJsonOptions(o =>
+{
+    o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    o.JsonSerializerOptions.Converters.Add(new ObjectIdJsonConverter());
+});
+
 var app = builder.Build();
 
 app.UseSwagger();
@@ -43,8 +51,8 @@ app.MapGet("/health", () => Results.Ok(new { ok = true, svc = "payments" }));
 // GET /payments/{purchaseId} => { purchaseId, status }
 app.MapGet("/payments/{purchaseId}", async (string purchaseId, IMongoDatabase db) =>
 {
-    var coll = db.GetCollection<BsonDocument>("purchases");
-    var doc = await coll.Find(Builders<BsonDocument>.Filter.Eq("_id", purchaseId))
+    var coll = db.GetCollection<BsonDocument>("Purchases");
+    var doc = await coll.Find(Builders<BsonDocument>.Filter.Eq("_id", new ObjectId(purchaseId)))
                         .FirstOrDefaultAsync();
     if (doc is null) return Results.NotFound(new { error = "not found" });
 
