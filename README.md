@@ -63,21 +63,20 @@ Games API → (SendMessage) → Amazon SQS (payments-queue) → (trigger) → Pa
 - **Produtor**: Games Service (tem permissão apenas de `sqs:SendMessage` na fila).
 - **Consumidor**: Payments Worker (permissões de `sqs:ReceiveMessage`, `sqs:DeleteMessage`, `sqs:GetQueueAttributes`).
 
+- Caso haja permissão inváida:
+  <img width="843" height="143" alt="image" src="https://github.com/user-attachments/assets/9efbe6e9-8a08-4ac8-85f4-835607187757" />
+
 **Contrato esperado da mensagem** (exemplo **típico** gerado pelo Games):
 
 ```json
 {
   "purchaseId": "650f1e2b0c9f1a3b9b7a1234",
   "userId": "650f1e2b0c9f1a3b9b7a5678",
-  "gameId": "650f1e2b0c9f1a3b9b7a9999",
-  "price": 199.90,
-  "currency": "BRL",
-  "createdAt": "2025-10-01T13:45:00Z"
+  "amount": 199.90,
 }
 ```
 
-> O Worker **não precisa de dados sensíveis do cartão** (mock).  
-> Após processar, ele grava no MongoDB Atlas a compra com `status` atualizado (`PAID` ou `FAILED`) e marca um `processedAt`.
+> Após processar, ele grava no MongoDB Atlas a compra com `status` atualizado (`PAID`) e marca um `updatedAt`.
 
 **Parâmetros operacionais da fila** (recomendado):
 - **VisibilityTimeout** ≥ **timeout da Lambda Worker** (ex.: fila **360s**; worker **60–120s**).  
