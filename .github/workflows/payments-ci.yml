@@ -1,0 +1,61 @@
+name: payments-ci
+
+on:
+  push:
+    paths:
+      - "src/payments-svc/**"
+      - "**/*Tests.csproj"
+      - ".github/workflows/payments-ci.yml"
+  pull_request:
+    paths:
+      - "src/payments-svc/**"
+      - "**/*Tests.csproj"
+      - ".github/workflows/payments-ci.yml"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore (API/Worker)
+        working-directory: src/payments-svc
+        run: dotnet restore
+
+      - name: Build (Release)
+        working-directory: src/payments-svc
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Discover and Test (projects outside src)
+        shell: bash
+        run: |
+          set -e
+          # procura testes fora de src/payments-svc (ajuste depth se necessário)
+          mapfile -t TEST_PROJS < <(find . -maxdepth 2 -type f -name "*Tests.csproj" ! -path "./src/payments-svc/*" || true)
+          if [ ${#TEST_PROJS[@]} -eq 0 ]; then
+            echo "Nenhum projeto de teste encontrado fora de src (ok para esta fase)."
+            exit 0
+          fi
+
+          echo "Projetos de teste:"
+          printf '%s\n' "${TEST_PROJS[@]}"
+
+          for proj in "${TEST_PROJS[@]}"; do
+            dotnet restore "$proj"
+            dotnet test "$proj" --configuration Release --no-build --collect:"XPlat Code Coverage" --logger trx
+          done

@@ -1,0 +1,79 @@
+name: payments-cd
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "src/payments-svc/**"
+      - ".github/workflows/payments-cd.yml"
+  workflow_dispatch: {}
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  STACK_NAME: ${{ secrets.CFN_STACK_NAME }}
+  ARTIFACTS_BUCKET: ${{ secrets.ARTIFACTS_BUCKET }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: payments-deploy
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install Amazon.Lambda.Tools
+        run: dotnet tool install -g Amazon.Lambda.Tools
+
+      - name: Configure AWS Credentials (Access Keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}
+
+      - name: Ensure artifacts bucket exists (idempotent)
+        run: |
+          if ! aws s3api head-bucket --bucket "$ARTIFACTS_BUCKET" 2>/dev/null; then
+            aws s3 mb "s3://$ARTIFACTS_BUCKET" --region "$AWS_REGION"
+          fi
+
+      - name: Restore & Build (Release)
+        working-directory: src/payments-svc
+        run: |
+          dotnet restore
+          dotnet build --configuration Release --no-restore
+
+      - name: Deploy Serverless (CloudFormation)
+        working-directory: src/payments-svc
+        run: |
+          dotnet lambda deploy-serverless \
+            --stack-name "$STACK_NAME" \
+            --s3-bucket "$ARTIFACTS_BUCKET" \
+            --region "$AWS_REGION" \
+            --configuration Release \
+            --framework net8.0 \
+            --msbuild-parameters /p:PublishReadyToRun=false
+
+      - name: Get API URL (se existir)
+        id: get_api_url
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiURL' || OutputKey=='ApiUrl' || contains(OutputKey,'PaymentsApi')].OutputValue" \
+            --output text || true)
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          echo "API URL: $API_URL"
+
+      - name: Smoke test - /health (API)
+        if: steps.get_api_url.outputs.api_url != ''
+        run: |
+          echo "Calling ${{ steps.get_api_url.outputs.api_url }}health ..."
+          curl -fsSL "${{ steps.get_api_url.outputs.api_url }}health" || (echo "Health check failed" && exit 1)
