@@ -59,7 +59,7 @@ app.MapGet("/payments/{purchaseId}", async (string purchaseId, IMongoDatabase db
                         .FirstOrDefaultAsync();
     if (doc is null) return Results.NotFound(new { error = "not found" });
 
-    var status = doc.GetValue("status", "PENDING").AsString;
+    var status = doc.GetValue("Status", "PENDING").AsString;
     return Results.Ok(new { purchaseId, status });
 });
 
