@@ -66,13 +66,13 @@ public class PaymentWorker
 
             // Grava evento (event sourcing)
             var ev = new BsonDocument {
-                { "aggregateId", msg.PurchaseId },
-                { "type", "PaymentProcessed" },
-                { "timestamp", DateTime.UtcNow },
-                { "seq", 1 },
-                { "data", new BsonDocument {
-                    { "userId", userId },
-                    { "amount", msg.Amount }
+                { "AggregateId", msg.PurchaseId },
+                { "Type", "PaymentProcessed" },
+                { "Timestamp", DateTime.UtcNow },
+                { "Seq", 1 },
+                { "Data", new BsonDocument {
+                    { "UserId", userId },
+                    { "Amount", msg.Amount }
                 } }
             };
             await events.InsertOneAsync(ev);
