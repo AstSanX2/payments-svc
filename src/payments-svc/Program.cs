@@ -1,20 +1,35 @@
-using Amazon.XRay.Recorder.Handlers.AwsSdk;
 using Helpers;
 using Microsoft.OpenApi.Models;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Text.Json;
 
-AWSSDKHandler.RegisterXRayForAllServices();
-
 var builder = WebApplication.CreateBuilder(args);
 
-// Executa como Lambda atrás do API Gateway (REST)
-builder.Services.AddAWSLambdaHosting(LambdaEventSource.RestApi);
+// ------------------------------------------------------
+// Kestrel otimizado para rodar em container/Kubernetes
+// ------------------------------------------------------
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.AddServerHeader = false;
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
+});
 
-// Mongo via ENV (injetado pelo template com ssm-secure)
-var mongoUri = Environment.GetEnvironmentVariable("MONGODB_URI")
-    ?? throw new InvalidOperationException("Env MONGODB_URI não definida.");
+var env = builder.Environment;
+var config = builder.Configuration;
+
+static string FirstNonEmpty(params string?[] vals) =>
+    vals.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "";
+
+// Mongo via ENV (recomendado em containers) ou appsettings (Dev)
+var mongoUri = FirstNonEmpty(
+    Environment.GetEnvironmentVariable("MONGODB_URI"),
+    config["MongoDB:ConnectionString"]
+);
+
+if (string.IsNullOrWhiteSpace(mongoUri))
+    throw new InvalidOperationException("MongoDB connection string not found (env MONGODB_URI ou MongoDB:ConnectionString).");
 
 builder.Services.AddSingleton<IMongoClient>(_ =>
 {
@@ -26,11 +41,11 @@ builder.Services.AddSingleton<IMongoClient>(_ =>
 builder.Services.AddSingleton(sp =>
 {
     var url = new MongoUrl(mongoUri);
-    var dbName = url.DatabaseName ?? "fase3";
+    var dbName = url.DatabaseName ?? "fcg-db";
     return sp.GetRequiredService<IMongoClient>().GetDatabase(dbName);
 });
 
-// Swagger (só para ajudar no teste)
+// Swagger (sï¿½ para ajudar no teste)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -50,6 +65,8 @@ app.UseSwaggerUI();
 
 // Health
 app.MapGet("/health", () => Results.Ok(new { ok = true, svc = "payments" }));
+app.MapGet("/ready", () => Results.Ok(new { ready = true, svc = "payments" }));
+app.MapGet("/", () => "PaymentsSvc up & running (container mode)");
 
 // GET /payments/{purchaseId} => { purchaseId, status }
 app.MapGet("/payments/{purchaseId}", async (string purchaseId, IMongoDatabase db) =>

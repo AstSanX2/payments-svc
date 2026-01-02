@@ -7,6 +7,18 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
       "applicationUrl": "https://localhost:56678;http://localhost:56679"
+    },
+    "Docker": {
+      "commandName": "Docker",
+      "launchBrowser": true,
+      "launchUrl": "http://localhost:8082/health",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "MONGODB_URI": "mongodb://host.docker.internal:27017/fcg-db"
+      },
+      "publishAllPorts": false,
+      "useSSL": false,
+      "httpPort": 8082
     }
   }
 }

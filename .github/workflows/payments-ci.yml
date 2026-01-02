@@ -41,6 +41,20 @@ jobs:
         working-directory: src/payments-svc
         run: dotnet build --configuration Release --no-restore
 
+      - name: Restore (Worker)
+        run: |
+          if [ -f "src/Worker/PaymentsWorker.csproj" ]; then
+            dotnet restore "src/Worker/PaymentsWorker.csproj"
+          else
+            echo "PaymentsWorker.csproj não encontrado (ok se repo não tiver worker)."
+          fi
+
+      - name: Build (Release, Worker)
+        run: |
+          if [ -f "src/Worker/PaymentsWorker.csproj" ]; then
+            dotnet build "src/Worker/PaymentsWorker.csproj" --configuration Release --no-restore
+          fi
+
       - name: Discover and Test (projects outside src)
         shell: bash
         run: |

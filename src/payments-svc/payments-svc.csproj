@@ -10,7 +10,16 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <!-- Generate ready to run images during publishing to improve cold start time. -->
     <PublishReadyToRun>true</PublishReadyToRun>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <!-- Necessário para o VS Container Tools (evita erro: 'Could not find the global property UserSecretsId') -->
+    <UserSecretsId>7e34f4b9-5b9c-4f7d-9b6f-0ddc6e4a8d2c</UserSecretsId>
   </PropertyGroup>
+  <ItemGroup>
+    <None Remove="Dockerfile" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Dockerfile" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Amazon.Lambda.AspNetCoreServer" Version="9.2.0" />
     <PackageReference Include="Amazon.Lambda.AspNetCoreServer.Hosting" Version="1.9.0" />
@@ -25,5 +34,6 @@
 	<PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="9.0.5" />
 	<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.5" />
 	<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
   </ItemGroup>
 </Project>
