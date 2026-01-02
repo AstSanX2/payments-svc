@@ -1,12 +1,6 @@
 name: payments-cd
 
 on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - "src/payments-svc/**"
-      - "src/Worker/**"
-      - ".github/workflows/payments-cd.yml"
   workflow_dispatch:
     inputs:
       deploy_mode:
@@ -25,7 +19,7 @@ env:
 
 jobs:
   deploy-container:
-    if: ${{ github.event_name == 'push' || github.event.inputs.deploy_mode == 'container' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'container' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
