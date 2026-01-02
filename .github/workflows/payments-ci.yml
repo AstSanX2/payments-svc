@@ -1,16 +1,9 @@
 name: payments-ci
 
 on:
-  push:
-    paths:
-      - "src/payments-svc/**"
-      - "**/*Tests.csproj"
-      - ".github/workflows/payments-ci.yml"
   pull_request:
-    paths:
-      - "src/payments-svc/**"
-      - "**/*Tests.csproj"
-      - ".github/workflows/payments-ci.yml"
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch: {}
 
 jobs:
   build-and-test:

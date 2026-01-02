@@ -23,30 +23,33 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure AWS Credentials (Access Keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Metadata (payments-worker)
-        id: meta_worker
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/fcg-payments-worker
-          tags: |
-            type=sha
-            type=ref,event=branch
+      - name: Ensure ECR repository exists (idempotent)
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="fcg-payments-worker"
+          aws ecr describe-repositories --repository-names "$repo" >/dev/null 2>&1 || \
+            aws ecr create-repository --repository-name "$repo" >/dev/null
 
       - name: Build & Push (payments-worker)
         uses: docker/build-push-action@v6
@@ -54,8 +57,9 @@ jobs:
           context: ./src/Worker
           file: ./src/Worker/Dockerfile
           push: true
-          tags: ${{ steps.meta_worker.outputs.tags }}
-          labels: ${{ steps.meta_worker.outputs.labels }}
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/fcg-payments-worker:latest
+            ${{ steps.login-ecr.outputs.registry }}/fcg-payments-worker:${{ github.sha }}
 
   deploy-serverless-legacy:
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'serverless' }}
