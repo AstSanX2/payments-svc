@@ -5,7 +5,7 @@ Arquitetura composta por **duas Lambdas**:
 - **Payments API** (HTTP via API Gateway): endpoints de **health** e **consulta de status** (apoio a testes).
 - **Payments Worker** (SQS Trigger): **consome mensagens** da fila `payments-queue` e **atualiza o status** da compra no MongoDB Atlas.
 
-**Segurança** via **JWT** (quando aplicável), **segredos no SSM**, **observabilidade** com **X-Ray** e **CloudWatch Logs**.
+**Segurança** via **JWT** (quando aplicável) e **observabilidade** com **CloudWatch Logs**.
 
 ---
 
@@ -16,7 +16,7 @@ Arquitetura composta por **duas Lambdas**:
 - [Fila SQS e contratos](#fila-sqs-e-contratos)
 - [Rotas (API de apoio a testes)](#rotas-api-de-apoio-a-testes)
 - [Pré-requisitos](#pré-requisitos)
-- [Configuração de Segredos (SSM Parameter Store)](#configuração-de-segredos-ssm-parameter-store)
+- [Configuração (appsettings)](#configuração-appsettings)
 - [Configuração Local (Dev)](#configuração-local-dev)
 - [Execução Local](#execução-local)
 - [Deploy na AWS (Serverless)](#deploy-na-aws-serverless)
@@ -52,7 +52,7 @@ Games API → (SendMessage) → Amazon SQS (payments-queue) → (trigger) → Pa
 - **Amazon SQS** (gatilho da Lambda Worker).
 - **MongoDB Atlas** (`MongoDB.Driver`) para persistência do status.
 - **JWT** para endpoints que exigirem proteção (opcional na API de teste).
-- **SSM Parameter Store** para segredos.
+- Configuração por `appsettings`.
 - **AWS X-Ray** (traces) + **CloudWatch Logs**.
 
 ---
@@ -115,29 +115,10 @@ Games API → (SendMessage) → Amazon SQS (payments-queue) → (trigger) → Pa
 
 ---
 
-## Configuração de Segredos (SSM Parameter Store)
+## Configuração (appsettings)
 
-Namespace: **`/fcg/...`** — crie **na mesma região** das Lambdas.
-
-```bash
-# MongoDB URI (com nome do DB na URI)
-aws ssm put-parameter \
-  --name "/fcg/MONGODB_URI" \
-  --type "SecureString" \
-  --value "mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/<db>?retryWrites=true&w=majority&appName=<app>"
-
-# (Opcional) JWT, caso proteja a API
-aws ssm put-parameter --name "/fcg/JWT_SECRET" --type "SecureString" --value "<chave-aleatoria-32+>"
-aws ssm put-parameter --name "/fcg/JWT_ISS"    --type "String"       --value "fcg-auth"
-aws ssm put-parameter --name "/fcg/JWT_AUD"    --type "String"       --value "fcg-clients"
-
-# Fila SQS (um dos dois; a Worker pode resolver por URL ou por nome)
-aws ssm put-parameter --name "/fcg/PAYMENTS_QUEUE_URL"  --type "String" --value "https://sqs.us-east-1.<account>.amazonaws.com/<accountId>/payments-queue"
-# ou
-aws ssm put-parameter --name "/fcg/PAYMENTS_QUEUE_NAME" --type "String" --value "payments-queue"
-```
-
-**Permissões IAM**: a role das Lambdas precisa de `ssm:GetParameter` para ler os parâmetros (`AmazonSSMReadOnlyAccess` ou policy mínima).
+- **Local**: `appsettings.Development.json` no repositório.
+- **Prod (Kubernetes)**: `appsettings.Production.json` montado no pod via `k8s/secrets.yaml` (chave `appsettings.Production.json`).
 
 ---
 

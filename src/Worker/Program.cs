@@ -7,8 +7,13 @@ var host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
     {
         // MongoDB
-        var mongoUri = Environment.GetEnvironmentVariable("MONGODB_URI")
-            ?? throw new InvalidOperationException("MONGODB_URI não configurada");
+        var mongoUri =
+            context.Configuration["MongoDB:ConnectionString"]
+            ?? context.Configuration["MONGODB_URI"]
+            ?? Environment.GetEnvironmentVariable("MONGODB_URI");
+
+        if (string.IsNullOrWhiteSpace(mongoUri))
+            throw new InvalidOperationException("MongoDB connection string not found (MongoDB:ConnectionString no appsettings ou env MONGODB_URI).");
 
         services.AddSingleton<IMongoClient>(_ =>
         {
