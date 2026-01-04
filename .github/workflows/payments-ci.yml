@@ -1,68 +1,44 @@
-name: payments-ci
+name: CI - Payments Service
 
 on:
+  push:
+    branches: [main, master]
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-  workflow_dispatch: {}
+    branches: [main, master]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup .NET 8
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: '8.0.x'
 
-      - name: Cache NuGet
-        uses: actions/cache@v4
+      - name: Restore dependencies
+        run: dotnet restore PaymentsSvc.sln
+
+      - name: Build
+        run: dotnet build PaymentsSvc.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test PaymentsSvc.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+          name: test-results
+          path: '**/TestResults/**/*.trx'
 
-      - name: Restore (API/Worker)
-        working-directory: src/payments-svc
-        run: dotnet restore
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports
+          path: '**/TestResults/**/coverage.cobertura.xml'
 
-      - name: Build (Release)
-        working-directory: src/payments-svc
-        run: dotnet build --configuration Release --no-restore
-
-      - name: Restore (Worker)
-        run: |
-          if [ -f "src/Worker/PaymentsWorker.csproj" ]; then
-            dotnet restore "src/Worker/PaymentsWorker.csproj"
-          else
-            echo "PaymentsWorker.csproj não encontrado (ok se repo não tiver worker)."
-          fi
-
-      - name: Build (Release, Worker)
-        run: |
-          if [ -f "src/Worker/PaymentsWorker.csproj" ]; then
-            dotnet build "src/Worker/PaymentsWorker.csproj" --configuration Release --no-restore
-          fi
-
-      - name: Discover and Test (projects outside src)
-        shell: bash
-        run: |
-          set -e
-          # procura testes fora de src/payments-svc (ajuste depth se necessário)
-          mapfile -t TEST_PROJS < <(find . -maxdepth 2 -type f -name "*Tests.csproj" ! -path "./src/payments-svc/*" || true)
-          if [ ${#TEST_PROJS[@]} -eq 0 ]; then
-            echo "Nenhum projeto de teste encontrado fora de src (ok para esta fase)."
-            exit 0
-          fi
-
-          echo "Projetos de teste:"
-          printf '%s\n' "${TEST_PROJS[@]}"
-
-          for proj in "${TEST_PROJS[@]}"; do
-            dotnet restore "$proj"
-            dotnet test "$proj" --configuration Release --no-build --collect:"XPlat Code Coverage" --logger trx
-          done

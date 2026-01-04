@@ -54,7 +54,8 @@ jobs:
       - name: Build & Push (payments-worker)
         uses: docker/build-push-action@v6
         with:
-          context: ./src/Worker
+          # Context precisa incluir src/payments-svc pois o Worker referencia o projeto principal
+          context: ./src
           file: ./src/Worker/Dockerfile
           push: true
           tags: |

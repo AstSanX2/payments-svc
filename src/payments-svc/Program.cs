@@ -1,10 +1,22 @@
+using Application.Services;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services;
 using Helpers;
+using Infraestructure.Repositories;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.OpenApi.Models;
-using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ------------------------------------------------------
+// Configuração: usar APENAS appsettings (sem env vars)
+// ------------------------------------------------------
+builder.Configuration.Sources.Clear();
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true);
 
 // ------------------------------------------------------
 // Kestrel otimizado para rodar em container/Kubernetes
@@ -16,20 +28,25 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
 });
 
+// Para funcionar bem atrás de ingress/nginx/ALB
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+
 var env = builder.Environment;
 var config = builder.Configuration;
 
 static string FirstNonEmpty(params string?[] vals) =>
     vals.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "";
 
-// Mongo via ENV (recomendado em containers) ou appsettings (Dev)
+// ----------------- MongoDB -----------------
 var mongoUri = FirstNonEmpty(
-    Environment.GetEnvironmentVariable("MONGODB_URI"),
     config["MongoDB:ConnectionString"]
 );
 
 if (string.IsNullOrWhiteSpace(mongoUri))
-    throw new InvalidOperationException("MongoDB connection string not found (env MONGODB_URI ou MongoDB:ConnectionString).");
+    throw new InvalidOperationException("MongoDB connection string not found (MongoDB:ConnectionString no appsettings).");
 
 builder.Services.AddSingleton<IMongoClient>(_ =>
 {
@@ -45,39 +62,51 @@ builder.Services.AddSingleton(sp =>
     return sp.GetRequiredService<IMongoClient>().GetDatabase(dbName);
 });
 
-// Swagger (s� para ajudar no teste)
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "PaymentsSvc", Version = "v1" });
-});
+// ----------------- DI (Repositories & Services) -----------------
+builder.Services.AddScoped<IPurchaseRepository, PurchaseRepository>();
+builder.Services.AddScoped<IEventRepository, EventRepository>();
+builder.Services.AddScoped<IPaymentsService, PaymentsService>();
+builder.Services.AddScoped<IPaymentProcessingService, PaymentProcessingService>();
 
+// ----------------- MVC + Swagger -----------------
 builder.Services.AddControllers().AddJsonOptions(o =>
 {
     o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     o.JsonSerializerOptions.Converters.Add(new ObjectIdJsonConverter());
 });
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "PaymentsSvc", Version = "v1" });
+});
+
 var app = builder.Build();
+
+// Para funcionar bem atrás de proxy reverso / ingress
+app.UseForwardedHeaders();
 
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// Health
-app.MapGet("/health", () => Results.Ok(new { ok = true, svc = "payments" }));
-app.MapGet("/ready", () => Results.Ok(new { ready = true, svc = "payments" }));
-app.MapGet("/", () => "PaymentsSvc up & running (container mode)");
+app.MapControllers();
 
-// GET /payments/{purchaseId} => { purchaseId, status }
-app.MapGet("/payments/{purchaseId}", async (string purchaseId, IMongoDatabase db) =>
+// ------------------------------------------------------
+// Endpoints para probes do Kubernetes
+// ------------------------------------------------------
+app.MapGet("/health", () => Results.Ok(new
 {
-    var coll = db.GetCollection<BsonDocument>("Purchases");
-    var doc = await coll.Find(Builders<BsonDocument>.Filter.Eq("_id", new ObjectId(purchaseId)))
-                        .FirstOrDefaultAsync();
-    if (doc is null) return Results.NotFound(new { error = "not found" });
+    ok = true,
+    svc = "payments",
+    env = env.EnvironmentName
+}));
 
-    var status = doc.GetValue("Status", "PENDING").AsString;
-    return Results.Ok(new { purchaseId, status });
-});
+app.MapGet("/ready", () => Results.Ok(new
+{
+    ready = true,
+    svc = "payments"
+}));
+
+app.MapGet("/", () => "PaymentsSvc up & running (container mode)");
 
 app.Run();
