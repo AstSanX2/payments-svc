@@ -5,7 +5,11 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{5E70F547-21A4-4A58-BB6E-1D4D5E81EA9D}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{7D3E5E7A-1234-4F8F-8D49-3D7C6C52D5A2}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "payments-svc", "src\payments-svc\payments-svc.csproj", "{A71CC707-6530-4103-8F95-B4FE9D3E3614}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "payments-svc.Tests", "test\payments-svc.Tests\payments-svc.Tests.csproj", "{B82CC707-6530-4103-8F95-B4FE9D3E3615}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,8 +24,13 @@ Global
 		{A71CC707-6530-4103-8F95-B4FE9D3E3614}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A71CC707-6530-4103-8F95-B4FE9D3E3614}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A71CC707-6530-4103-8F95-B4FE9D3E3614}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B82CC707-6530-4103-8F95-B4FE9D3E3615}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B82CC707-6530-4103-8F95-B4FE9D3E3615}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B82CC707-6530-4103-8F95-B4FE9D3E3615}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B82CC707-6530-4103-8F95-B4FE9D3E3615}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{A71CC707-6530-4103-8F95-B4FE9D3E3614} = {5E70F547-21A4-4A58-BB6E-1D4D5E81EA9D}
+		{B82CC707-6530-4103-8F95-B4FE9D3E3615} = {7D3E5E7A-1234-4F8F-8D49-3D7C6C52D5A2}
 	EndGlobalSection
 EndGlobal
