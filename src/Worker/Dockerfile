@@ -4,11 +4,15 @@ WORKDIR /src
 
 ARG BUILD_CONFIGURATION=Release
 
-COPY PaymentsWorker.csproj ./
-RUN dotnet restore
+# Build context esperado: ./src (repo root)
+# Copia os csproj necessários para restaurar com ProjectReference
+COPY Worker/PaymentsWorker.csproj Worker/
+COPY payments-svc/payments-svc.csproj payments-svc/
+
+RUN dotnet restore Worker/PaymentsWorker.csproj
 
 COPY . .
-RUN dotnet publish -c $BUILD_CONFIGURATION -o /app /p:UseAppHost=false
+RUN dotnet publish Worker/PaymentsWorker.csproj -c $BUILD_CONFIGURATION -o /app /p:UseAppHost=false
 
 # ===== STAGE 2: runtime =====
 FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine AS final
