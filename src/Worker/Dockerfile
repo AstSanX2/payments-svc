@@ -15,7 +15,8 @@ COPY . .
 RUN dotnet publish Worker/PaymentsWorker.csproj -c $BUILD_CONFIGURATION -o /app /p:UseAppHost=false
 
 # ===== STAGE 2: runtime =====
-FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine AS final
+# O worker referencia o projeto `payments-svc` (ASP.NET Core), então precisa do shared framework `Microsoft.AspNetCore.App`.
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS final
 WORKDIR /app
 
 # Instalar certificados e timezone
