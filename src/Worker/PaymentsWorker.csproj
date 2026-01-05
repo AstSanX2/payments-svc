@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\payments-svc\payments-svc.csproj" />
+    <ProjectReference Include="..\api\payments-svc.csproj" />
   </ItemGroup>
 </Project>
 

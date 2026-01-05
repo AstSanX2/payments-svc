@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\payments-svc\payments-svc.csproj" />
+    <ProjectReference Include="..\..\src\api\payments-svc.csproj" />
   </ItemGroup>
 
 </Project>

@@ -47,15 +47,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          repo="fcg-payments-worker"
-          aws ecr describe-repositories --repository-names "$repo" >/dev/null 2>&1 || \
-            aws ecr create-repository --repository-name "$repo" >/dev/null
+          for repo in fcg-payments-api fcg-payments-worker; do
+            aws ecr describe-repositories --repository-names "$repo" >/dev/null 2>&1 || \
+              aws ecr create-repository --repository-name "$repo" >/dev/null
+          done
+
+      - name: Build & Push (payments-api)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./src/api/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/fcg-payments-api:latest
+            ${{ steps.login-ecr.outputs.registry }}/fcg-payments-api:${{ github.sha }}
 
       - name: Build & Push (payments-worker)
         uses: docker/build-push-action@v6
         with:
-          # Context precisa incluir src/payments-svc pois o Worker referencia o projeto principal
-          context: ./src
+          # Dockerfiles assumem contexto na raiz do repo
+          context: .
           file: ./src/Worker/Dockerfile
           push: true
           tags: |
@@ -95,13 +106,13 @@ jobs:
           fi
 
       - name: Restore & Build (Release)
-        working-directory: src/payments-svc
+        working-directory: src/api
         run: |
           dotnet restore
           dotnet build --configuration Release --no-restore
 
       - name: Deploy Serverless (CloudFormation)
-        working-directory: src/payments-svc
+        working-directory: src/api
         run: |
           dotnet lambda deploy-serverless \
             --stack-name "$STACK_NAME" \

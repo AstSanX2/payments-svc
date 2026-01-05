@@ -65,8 +65,12 @@ builder.Services.AddSingleton(sp =>
 // ----------------- DI (Repositories & Services) -----------------
 builder.Services.AddScoped<IPurchaseRepository, PurchaseRepository>();
 builder.Services.AddScoped<IEventRepository, EventRepository>();
+builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
 builder.Services.AddScoped<IPaymentsService, PaymentsService>();
 builder.Services.AddScoped<IPaymentProcessingService, PaymentProcessingService>();
+
+// Outbox publisher (SQS integration events)
+builder.Services.AddHostedService<Application.Services.OutboxPublisherHostedService>();
 
 // ----------------- MVC + Swagger -----------------
 builder.Services.AddControllers().AddJsonOptions(o =>
