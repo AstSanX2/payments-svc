@@ -5,13 +5,13 @@ WORKDIR /src
 ARG BUILD_CONFIGURATION=Release
 
 # Copia os csproj necessários para restaurar com ProjectReference
-COPY src/worker/PaymentsWorker.csproj src/worker/
+COPY src/Worker/PaymentsWorker.csproj src/Worker/
 COPY src/api/payments-svc.csproj src/api/
 
-RUN dotnet restore src/worker/PaymentsWorker.csproj
+RUN dotnet restore src/Worker/PaymentsWorker.csproj
 
 COPY src/ src/
-RUN dotnet publish src/worker/PaymentsWorker.csproj -c $BUILD_CONFIGURATION -o /app /p:UseAppHost=false
+RUN dotnet publish src/Worker/PaymentsWorker.csproj -c $BUILD_CONFIGURATION -o /app /p:UseAppHost=false
 
 # ===== STAGE 2: runtime =====
 # O worker referencia o projeto `payments-svc` (ASP.NET Core), então precisa do shared framework `Microsoft.AspNetCore.App`.
