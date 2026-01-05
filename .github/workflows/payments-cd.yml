@@ -54,9 +54,9 @@ jobs:
       - name: Build & Push (payments-worker)
         uses: docker/build-push-action@v6
         with:
-          # Context precisa incluir src/payments-svc pois o Worker referencia o projeto principal
-          context: ./src
-          file: ./src/Worker/Dockerfile
+          # Dockerfiles assumem contexto na raiz do repo
+          context: .
+          file: ./src/worker/Dockerfile
           push: true
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/fcg-payments-worker:latest
@@ -95,13 +95,13 @@ jobs:
           fi
 
       - name: Restore & Build (Release)
-        working-directory: src/payments-svc
+        working-directory: src/api
         run: |
           dotnet restore
           dotnet build --configuration Release --no-restore
 
       - name: Deploy Serverless (CloudFormation)
-        working-directory: src/payments-svc
+        working-directory: src/api
         run: |
           dotnet lambda deploy-serverless \
             --stack-name "$STACK_NAME" \

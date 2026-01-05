@@ -28,6 +28,11 @@ jobs:
       - name: Run tests
         run: dotnet test PaymentsSvc.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage"
 
+      - name: Build Docker images (no push)
+        run: |
+          docker build -f src/api/Dockerfile -t ci/payments-api:ci .
+          docker build -f src/worker/Dockerfile -t ci/payments-worker:ci .
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
