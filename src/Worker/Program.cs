@@ -38,10 +38,13 @@ var host = Host.CreateDefaultBuilder(args)
         // Reusa services/repos do payments-svc (clean architecture)
         services.AddScoped<Domain.Interfaces.Repositories.IPurchaseRepository, Infraestructure.Repositories.PurchaseRepository>();
         services.AddScoped<Domain.Interfaces.Repositories.IEventRepository, Infraestructure.Repositories.EventRepository>();
+        services.AddScoped<Domain.Interfaces.Repositories.IOutboxRepository, Infraestructure.Repositories.OutboxRepository>();
         services.AddScoped<Domain.Interfaces.Services.IPaymentProcessingService, Application.Services.PaymentProcessingService>();
 
         // Worker
         services.AddHostedService<PaymentEventsWorker>();
+        // Publisher do Outbox (publica eventos de integração gerados pelo processamento de pagamentos)
+        services.AddHostedService<Application.Services.OutboxPublisherHostedService>();
     })
     .Build();
 

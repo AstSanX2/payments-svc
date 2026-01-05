@@ -4,31 +4,32 @@ WORKDIR /src
 
 ARG BUILD_CONFIGURATION=Release
 
-# Copia os csproj necessários para restaurar com ProjectReference
-COPY src/worker/PaymentsWorker.csproj src/worker/
 COPY src/api/payments-svc.csproj src/api/
-
-RUN dotnet restore src/worker/PaymentsWorker.csproj
+RUN dotnet restore src/api/payments-svc.csproj
 
 COPY src/ src/
-RUN dotnet publish src/worker/PaymentsWorker.csproj -c $BUILD_CONFIGURATION -o /app /p:UseAppHost=false
+RUN dotnet publish src/api/payments-svc.csproj -c $BUILD_CONFIGURATION -o /app /p:UseAppHost=false
 
 # ===== STAGE 2: runtime =====
-# O worker referencia o projeto `payments-svc` (ASP.NET Core), então precisa do shared framework `Microsoft.AspNetCore.App`.
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS final
 WORKDIR /app
 
-# Instalar certificados e timezone
+# Instalar timezone/ICU (se necessário)
 RUN apk add --no-cache icu-libs tzdata
 
 COPY --from=build --chown=app:app /app .
 
+ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_EnableDiagnostics=false
 ENV DOTNET_TieredPGO=1
 ENV DOTNET_TC_QuickJitForLoops=1
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
+EXPOSE 8080
+
 USER app
 
-ENTRYPOINT ["dotnet", "PaymentsWorker.dll"]
+ENTRYPOINT ["dotnet", "payments-svc.dll"]
+
 
