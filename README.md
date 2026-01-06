@@ -48,7 +48,7 @@ dotnet test test/payments-svc.Tests/payments-svc.Tests.csproj -c Release
 ```
 
 ## Docker
-- API: `src/payments-svc/Dockerfile`
+- API: `src/api/Dockerfile`
 - Worker: `src/Worker/Dockerfile`
 - Imagens rodam como **non-root** (`USER app`) e sem `HEALTHCHECK` (probes são do Kubernetes).
 

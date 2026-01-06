@@ -2,7 +2,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using MongoDB.Driver;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using System.Diagnostics;
 using PaymentsWorker;
+
+Activity.DefaultIdFormat = ActivityIdFormat.W3C;
+Activity.ForceDefaultIdFormat = true;
 
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureAppConfiguration((context, cfg) =>
@@ -45,6 +51,18 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddHostedService<PaymentEventsWorker>();
         // Publisher do Outbox (publica eventos de integração gerados pelo processamento de pagamentos)
         services.AddHostedService<Application.Services.OutboxPublisherHostedService>();
+
+        var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+        if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+        {
+            services.AddOpenTelemetry()
+                .ConfigureResource(r => r.AddService(serviceName: "payments-worker"))
+                .WithTracing(t =>
+                {
+                    t.AddHttpClientInstrumentation();
+                    t.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+                });
+        }
     })
     .Build();
 

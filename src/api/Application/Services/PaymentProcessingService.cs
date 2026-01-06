@@ -69,7 +69,7 @@ namespace Application.Services
                 var queueUrl = configuration["Sqs:PaymentsEventsQueueUrl"];
                 if (string.IsNullOrWhiteSpace(queueUrl)) return;
 
-                var correlationId = Activity.Current?.TraceId.ToString();
+                var correlationId = Activity.Current?.Id ?? Activity.Current?.TraceId.ToString();
                 var env = IntegrationEventEnvelope.Create(
                     type: "PaymentProcessed",
                     source: SourceName,

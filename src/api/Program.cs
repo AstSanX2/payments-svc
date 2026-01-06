@@ -6,9 +6,15 @@ using Infraestructure.Repositories;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using System.Diagnostics;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+
+Activity.DefaultIdFormat = ActivityIdFormat.W3C;
+Activity.ForceDefaultIdFormat = true;
 
 // ------------------------------------------------------
 // Configuração: usar APENAS appsettings (sem env vars)
@@ -36,6 +42,19 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var env = builder.Environment;
 var config = builder.Configuration;
+
+var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+{
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(r => r.AddService(serviceName: "payments-api"))
+        .WithTracing(t =>
+        {
+            t.AddAspNetCoreInstrumentation();
+            t.AddHttpClientInstrumentation();
+            t.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+        });
+}
 
 static string FirstNonEmpty(params string?[] vals) =>
     vals.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "";
