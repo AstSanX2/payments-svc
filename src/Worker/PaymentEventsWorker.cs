@@ -75,13 +75,14 @@ public class PaymentEventsWorker : BackgroundService
                     VisibilityTimeout = 60
                 }, stoppingToken);
 
-                if (response.Messages.Count == 0)
+                var messages = response.Messages ?? new List<Message>();
+                if (messages.Count == 0)
                 {
                     await Task.Delay(_pollIntervalMs, stoppingToken);
                     continue;
                 }
 
-                foreach (var message in response.Messages)
+                foreach (var message in messages)
                 {
                     try
                     {
@@ -91,7 +92,7 @@ public class PaymentEventsWorker : BackgroundService
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[PaymentsWorker] Erro ao processar mensagem {message.MessageId}: {ex.Message}");
+                        Console.WriteLine($"[PaymentsWorker] Erro ao processar mensagem {message.MessageId}: {ex}");
                         // Mensagem volta para a fila após visibility timeout
                     }
                 }
@@ -102,7 +103,7 @@ public class PaymentEventsWorker : BackgroundService
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[PaymentsWorker] Erro no loop: {ex.Message}");
+                Console.WriteLine($"[PaymentsWorker] Erro no loop: {ex}");
                 await Task.Delay(5000, stoppingToken);
             }
         }
