@@ -59,6 +59,11 @@ var host = Host.CreateDefaultBuilder(args)
                 .ConfigureResource(r => r.AddService(serviceName: "payments-worker"))
                 .WithTracing(t =>
                 {
+                    t.SetSampler(new AlwaysOnSampler());
+                    t.AddSource("payments-worker");
+                    // payments-worker also runs Application.Services.OutboxPublisherHostedService
+                    // which emits spans under "payments-api.outbox".
+                    t.AddSource("payments-api.outbox");
                     t.AddHttpClientInstrumentation();
                     t.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
                 });
