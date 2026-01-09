@@ -1,7 +1,9 @@
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace Domain.Entities
 {
+    [BsonIgnoreExtraElements]
     public class Purchase
     {
         public ObjectId _id { get; set; }

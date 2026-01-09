@@ -5,12 +5,14 @@ using Amazon.SQS.Model;
 using Domain.Interfaces.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace PaymentsWorker;
 
 public class PaymentEventsWorker : BackgroundService
 {
+    private static readonly ActivitySource ActivitySource = new("payments-worker");
     private readonly IAmazonSQS _sqs;
     private readonly string _queueUrl;
     private readonly int _pollIntervalMs;
@@ -67,6 +69,11 @@ public class PaymentEventsWorker : BackgroundService
         {
             try
             {
+                using var pollActivity = ActivitySource.StartActivity("sqs receive", ActivityKind.Consumer);
+                pollActivity?.SetTag("messaging.system", "aws.sqs");
+                pollActivity?.SetTag("messaging.destination", "payments-queue");
+                pollActivity?.SetTag("messaging.operation", "receive");
+
                 var response = await _sqs.ReceiveMessageAsync(new ReceiveMessageRequest
                 {
                     QueueUrl = _queueUrl,
@@ -75,23 +82,25 @@ public class PaymentEventsWorker : BackgroundService
                     VisibilityTimeout = 60
                 }, stoppingToken);
 
-                if (response.Messages.Count == 0)
+                var messages = response.Messages ?? new List<Message>();
+                if (messages.Count == 0)
                 {
                     await Task.Delay(_pollIntervalMs, stoppingToken);
                     continue;
                 }
 
-                foreach (var message in response.Messages)
+                foreach (var message in messages)
                 {
                     try
                     {
+                        using var activity = StartConsumerActivity(message);
                         await _processor.ProcessAsync(message.MessageId, message.Body, stoppingToken);
                         await _sqs.DeleteMessageAsync(_queueUrl, message.ReceiptHandle, stoppingToken);
                         Console.WriteLine($"[PaymentsWorker] Mensagem processada: {message.MessageId}");
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[PaymentsWorker] Erro ao processar mensagem {message.MessageId}: {ex.Message}");
+                        Console.WriteLine($"[PaymentsWorker] Erro ao processar mensagem {message.MessageId}: {ex}");
                         // Mensagem volta para a fila após visibility timeout
                     }
                 }
@@ -102,12 +111,65 @@ public class PaymentEventsWorker : BackgroundService
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[PaymentsWorker] Erro no loop: {ex.Message}");
+                Console.WriteLine($"[PaymentsWorker] Erro no loop: {ex}");
                 await Task.Delay(5000, stoppingToken);
             }
         }
 
         Console.WriteLine("[PaymentsWorker] Worker encerrado");
+    }
+
+    private static Activity? StartConsumerActivity(Message message)
+    {
+        string? eventType = null;
+        string? correlationId = null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(message.Body);
+            var root = doc.RootElement;
+
+            // Tenta ler do envelope padrão (Type/CorrelationId), aceitando variações de casing
+            if (TryGetString(root, "Type", out var t) || TryGetString(root, "type", out t))
+                eventType = t;
+            if (TryGetString(root, "CorrelationId", out var c) || TryGetString(root, "correlationId", out c))
+                correlationId = c;
+        }
+        catch
+        {
+            // best-effort
+        }
+
+        Activity? activity;
+        var name = string.IsNullOrWhiteSpace(eventType) ? "sqs message consume" : $"{eventType} consume";
+
+        if (!string.IsNullOrWhiteSpace(correlationId)
+            && ActivityContext.TryParse(correlationId, null, out var parentContext))
+        {
+            activity = ActivitySource.StartActivity(name, ActivityKind.Consumer, parentContext);
+        }
+        else
+        {
+            activity = ActivitySource.StartActivity(name, ActivityKind.Consumer);
+        }
+
+        activity?.SetTag("messaging.system", "aws.sqs");
+        activity?.SetTag("messaging.destination", "payments-queue");
+        activity?.SetTag("messaging.operation", "process");
+        activity?.SetTag("messaging.message_id", message.MessageId);
+        if (!string.IsNullOrWhiteSpace(eventType)) activity?.SetTag("fcg.event_type", eventType);
+
+        return activity;
+    }
+
+    private static bool TryGetString(JsonElement obj, string propertyName, out string? value)
+    {
+        value = null;
+        if (obj.ValueKind != JsonValueKind.Object) return false;
+        if (!obj.TryGetProperty(propertyName, out var prop)) return false;
+        if (prop.ValueKind != JsonValueKind.String) return false;
+        value = prop.GetString();
+        return true;
     }
 }
 

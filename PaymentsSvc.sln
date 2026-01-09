@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "payments-svc.Tests", "test\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "payments-svc", "src\api\payments-svc.csproj", "{D54AB8E1-6901-4D95-AB77-F971E18B4D35}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PaymentsWorker", "src\worker\PaymentsWorker.csproj", "{4679EC83-6864-4529-B7BF-9F095E790D6B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PaymentsWorker", "src\Worker\PaymentsWorker.csproj", "{4679EC83-6864-4529-B7BF-9F095E790D6B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
